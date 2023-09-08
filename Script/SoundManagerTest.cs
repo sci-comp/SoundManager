@@ -38,7 +38,7 @@ public class SoundManagerTest : MonoBehaviour
     {
         SoundBusInfo info = soundManager.GetBUSInfoFromList(bus);
         textComponent.text = $"Bus: {bus}\n" +
-                             $"Active Voices: {info.activeVoices.Count}/{info.voiceLimit}\n" +
+                             $"Active Voices: {info.activeSources.Count}/{info.voiceLimit}\n" +
                              $"Volume: {info.individualVolume}";
     }
 }

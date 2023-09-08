@@ -7,13 +7,13 @@ using UnityEngine.Audio;
 
 public class SoundGroup : MonoBehaviour
 {
-    //public System.Action<SoundGroup, AudioSource> OnAudioSourceStopped;
-
     [SerializeField] bool use3DSound = false;
     [SerializeField] Vector2 varyPitch = new(0.95f, 1.05f);
     [SerializeField] Vector2 varyVolume = new(0.94f, 1.0f);
     [SerializeField] SoundBUS soundBUS = SoundBUS.SFX;
     [SerializeField] List<AudioSource> audioSources;
+
+    private readonly Dictionary<AudioSource, Coroutine> sourceCoroutines = new();
 
     public List<AudioSource> AudioSources => audioSources;
     public SoundBUS SoundBUS => soundBUS;
@@ -22,45 +22,53 @@ public class SoundGroup : MonoBehaviour
     private Queue<AudioSource> availableSources;
     private List<AudioSource> activeSources;
 
+    public void Stop(AudioSource src)
+    {
+        src.Stop();
+        StopCoroutine(sourceCoroutines[src]);
+        activeSources.Remove(src);
+        availableSources.Enqueue(src);
+        SoundManager.Instance.HandleAudioSourceStopped(this, src);
+    }
+
     private void Start()
     {
         availableSources = new(audioSources);
         activeSources = new();
     }
 
-    public (AudioSource, bool) GetAvailableSource()
+    public (AudioSource, SoundGroup) GetAvailableSource()
     {
         AudioSource src;
-        bool recycled;
 
         if (availableSources.Count > 0)
         {
             src = availableSources.Dequeue();
             src.enabled = true;
             activeSources.Add(src);
-            recycled = false;
         }
         else if (activeSources.Count > 0)
         {
             src = activeSources[0];
+            src.enabled = true;  // Should already be enabled
             src.Stop();
-            src.enabled = true;
+            SoundManager.Instance.HandleAudioSourceStopped(this, src);
+            StopCoroutine(sourceCoroutines[src]);
             activeSources.RemoveAt(0);
             activeSources.Add(src);
-            recycled = true;
         }
         else
         {
             Debug.LogError("No active or available audio sources. This is not logical.");
-            return (null, false);
+            return (null, this);
         }
 
         src.pitch = Random.Range(varyPitch.x, varyPitch.y);
         src.volume = Random.Range(varyVolume.x, varyVolume.y);
 
-        StartCoroutine(WaitForAudioToEnd(src));
+        sourceCoroutines[src] = StartCoroutine(WaitForAudioToEnd(src));
 
-        return (src, recycled);
+        return (src, this);
     }
 
     private IEnumerator WaitForAudioToEnd(AudioSource src)
@@ -74,7 +82,6 @@ public class SoundGroup : MonoBehaviour
         availableSources.Enqueue(src);
 
         SoundManager.Instance.HandleAudioSourceStopped(this, src);
-        //OnAudioSourceStopped?.Invoke(this, src);
     }
 
 #if UNITY_EDITOR
@@ -87,9 +94,9 @@ public class SoundGroup : MonoBehaviour
     public void CreateChildObjects()
     {
         SoundBusInfo busInfo = SoundManager.Instance.GetBUSInfoFromList(soundBUS);
-
         AudioMixerGroup[] groups = busInfo.audioMixer.FindMatchingGroups(string.Empty);
         AudioMixerGroup audioMixerGroup = null;
+
         foreach (var group in groups)
         {
             if (group.name == "Master")
@@ -134,5 +141,6 @@ public class SoundGroup : MonoBehaviour
         }
     }
 #endif
+
 }
 

@@ -16,4 +16,5 @@ MonoBehaviour:
   audioMixer: {fileID: 24100000, guid: 3f5e0d5a8b96fba48abe5ac42093edfb, type: 2}
   individualVolume: 1
   voiceLimit: 12
-  activeVoices: []
+  activeSources: []
+  activeSourcesSoundGroup: []

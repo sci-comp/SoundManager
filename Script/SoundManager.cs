@@ -49,16 +49,15 @@ public class SoundManager : Singleton<SoundManager>
         SoundBUS bus = soundGroup.SoundBUS;
         SoundBusInfo busInfo = allBusInfo[bus];
 
-        if (busInfo.activeVoices.Count > 0)
+        if (busInfo.activeSources.Count > 0)
         {
-            busInfo.activeVoices.Remove(src);
+            busInfo.activeSources.Remove(src);
+            busInfo.activeSourcesSoundGroup.Remove(soundGroup);
         }
         else
         {
             Debug.LogWarning("HandleAudioSourceStopped was invoked, but we have no actives voice.");
         }
-
-        //soundGroup.OnAudioSourceStopped -= HandleAudioSourceStopped;
     }
 
     public void SetBusVolume(SoundBUS bus, float volume)
@@ -85,29 +84,19 @@ public class SoundManager : Singleton<SoundManager>
         {
             SoundBusInfo busInfo = allBusInfo[soundGroup.SoundBUS];
 
-
-            if (busInfo.activeVoices.Count >= busInfo.voiceLimit && busInfo.activeVoices.Count > 0)
+            if (busInfo.activeSources.Count >= busInfo.voiceLimit && busInfo.activeSources.Count > 0)
             {
-                AudioSource toStop = busInfo.activeVoices[0];
-                toStop.Stop();
-                busInfo.activeVoices.RemoveAt(0);
+                AudioSource activeSource = busInfo.activeSources[0];
+                SoundGroup activeSourceSoundGroup = busInfo.activeSourcesSoundGroup[0];
+                activeSourceSoundGroup.Stop(activeSource);
             }
 
-            (AudioSource source, bool recycled) = soundGroup.GetAvailableSource();
-
+            (AudioSource source, SoundGroup sourceSoundGroup) = soundGroup.GetAvailableSource();
+            
             if (source != null)
             {
-                if (recycled)
-                {
-                    busInfo.activeVoices.Remove(source);
-                    busInfo.activeVoices.Add(source);
-                }
-                else
-                {
-                    busInfo.activeVoices.Add(source);
-                }
-
-                //soundGroup.OnAudioSourceStopped += HandleAudioSourceStopped;
+                busInfo.activeSources.Add(source);
+                busInfo.activeSourcesSoundGroup.Add(sourceSoundGroup);
 
                 if (location != null)
                 {

@@ -18,6 +18,7 @@ public class SoundBusInfo : ScriptableObject
     public AudioMixer audioMixer;
     public float individualVolume = 1.0f;
     public int voiceLimit;
-    public List<AudioSource> activeVoices = new();
+    public List<AudioSource> activeSources = new();
+    public List<SoundGroup> activeSourcesSoundGroup = new();
 }
 
