@@ -11,12 +11,12 @@ public class SoundManagerTest : MonoBehaviour
     [SerializeField] private TMP_Text uiBusText;
     [SerializeField] private TMP_Text voiceBusText;
 
-
-    [SerializeField] Button playVelcro = null;
+    [SerializeField] Button btnBubbles = null;
+    [SerializeField] Button btnVelcro = null;
 
     private void Start()
     {
-        playVelcro.onClick.AddListener(PlayVelcro);
+        btnVelcro.onClick.AddListener(PlayVelcro);
     }
 
     private void Update()
@@ -36,9 +36,9 @@ public class SoundManagerTest : MonoBehaviour
 
     private void UpdateBusInfo(SoundBUS bus, TMP_Text textComponent)
     {
-        BusInfo info = soundManager.GetBUSControl(bus);
+        SoundBusInfo info = soundManager.GetBUSInfoFromList(bus);
         textComponent.text = $"Bus: {bus}\n" +
-                             $"Active Voices: {info.activeVoiceCount}/{info.voiceLimit}\n" +
+                             $"Active Voices: {info.activeVoices.Count}/{info.voiceLimit}\n" +
                              $"Volume: {info.individualVolume}";
     }
 }

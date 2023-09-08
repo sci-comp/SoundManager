@@ -1,14 +1,13 @@
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using Sirenix.OdinInspector;
+using UnityEngine.Audio;
 
 public class SoundGroup : MonoBehaviour
 {
-    public delegate void AudioSourceStoppedHandler(SoundGroup soundGroup);
-    public event AudioSourceStoppedHandler OnAudioSourceStopped;
+    //public System.Action<SoundGroup, AudioSource> OnAudioSourceStopped;
 
     [SerializeField] bool use3DSound = false;
     [SerializeField] Vector2 varyPitch = new(0.95f, 1.05f);
@@ -29,15 +28,17 @@ public class SoundGroup : MonoBehaviour
         activeSources = new();
     }
 
-    public AudioSource GetAvailableSource()
+    public (AudioSource, bool) GetAvailableSource()
     {
         AudioSource src;
+        bool recycled;
 
         if (availableSources.Count > 0)
         {
             src = availableSources.Dequeue();
             src.enabled = true;
             activeSources.Add(src);
+            recycled = false;
         }
         else if (activeSources.Count > 0)
         {
@@ -46,11 +47,12 @@ public class SoundGroup : MonoBehaviour
             src.enabled = true;
             activeSources.RemoveAt(0);
             activeSources.Add(src);
+            recycled = true;
         }
         else
         {
             Debug.LogError("No active or available audio sources. This is not logical.");
-            return null;
+            return (null, false);
         }
 
         src.pitch = Random.Range(varyPitch.x, varyPitch.y);
@@ -58,7 +60,7 @@ public class SoundGroup : MonoBehaviour
 
         StartCoroutine(WaitForAudioToEnd(src));
 
-        return src;
+        return (src, recycled);
     }
 
     private IEnumerator WaitForAudioToEnd(AudioSource src)
@@ -71,7 +73,8 @@ public class SoundGroup : MonoBehaviour
         activeSources.Remove(src);
         availableSources.Enqueue(src);
 
-        OnAudioSourceStopped?.Invoke(this);
+        SoundManager.Instance.HandleAudioSourceStopped(this, src);
+        //OnAudioSourceStopped?.Invoke(this, src);
     }
 
 #if UNITY_EDITOR
@@ -83,10 +86,24 @@ public class SoundGroup : MonoBehaviour
     [Button("Create game objects for audio sources")]
     public void CreateChildObjects()
     {
-        Object[] selectedAssets = Selection.GetFiltered(typeof(Object), SelectionMode.Assets);
+        SoundBusInfo busInfo = SoundManager.Instance.GetBUSInfoFromList(soundBUS);
 
-        // Sort by name
-        selectedAssets = selectedAssets.OrderBy(asset => asset.name).ToArray();
+        AudioMixerGroup[] groups = busInfo.audioMixer.FindMatchingGroups(string.Empty);
+        AudioMixerGroup audioMixerGroup = null;
+        foreach (var group in groups)
+        {
+            if (group.name == "Master")
+            {
+                audioMixerGroup = group;
+            }
+        }
+
+        if (audioMixerGroup == null ) { 
+            Debug.Log("Null mixer: " + audioMixerGroup);
+        }
+
+        Object[] selectedAssets = Selection.GetFiltered(typeof(Object), SelectionMode.Assets);
+        System.Array.Sort(selectedAssets, (a, b) => string.Compare(a.name, b.name));
 
         foreach (Object asset in selectedAssets)
         {
@@ -97,8 +114,23 @@ public class SoundGroup : MonoBehaviour
                 continue;
             }
 
-            GameObject newObject = new(asset.name);
-            newObject.AddComponent<AudioSource>();
+            if (asset is AudioClip audioClip)
+            {
+                GameObject newObject = new(asset.name);
+                AudioSource audioSource = newObject.AddComponent<AudioSource>();
+                newObject.transform.SetParent(transform);
+
+                audioSource.clip = audioClip;
+                audioSource.outputAudioMixerGroup = audioMixerGroup;
+                audioSource.loop = false;
+                audioSource.playOnAwake = false;
+                audioSource.volume = 1.0f;
+                audioSource.pitch = 1.0f;
+                audioSource.spatialBlend = use3DSound ? 1.0f : 0.0f;
+
+                audioSources.Add(audioSource);
+            }
+                
         }
     }
 #endif
