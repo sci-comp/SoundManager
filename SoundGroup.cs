@@ -1,6 +1,9 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
+using UnityEditor;
 using UnityEngine;
+using Sirenix.OdinInspector;
 
 public class SoundGroup : MonoBehaviour
 {
@@ -71,5 +74,33 @@ public class SoundGroup : MonoBehaviour
         OnAudioSourceStopped?.Invoke(this);
     }
 
+#if UNITY_EDITOR
+    [InfoBox("This is a simple helper method for creating AudioSource components for a given sound group. Usage:\n\n" +
+        "1) Click \"Lock Inspector\" while the game object with the SoundGroup.cs component is selected\n" +
+        "2) Select multiple audio clip assets in the Project view.\n" +
+        "3) Click this button.\n\n" +
+        "A new game object with the same name as each respective audio clip will be created. This new game object will have an AudioSource.cs component attached, and the AudioSource will be initialized with default values and references from the sound group.")]
+    [Button("Create game objects for audio sources")]
+    public void CreateChildObjects()
+    {
+        Object[] selectedAssets = Selection.GetFiltered(typeof(Object), SelectionMode.Assets);
+
+        // Sort by name
+        selectedAssets = selectedAssets.OrderBy(asset => asset.name).ToArray();
+
+        foreach (Object asset in selectedAssets)
+        {
+            string assetPath = AssetDatabase.GetAssetPath(asset);
+            if (string.IsNullOrEmpty(assetPath))
+            {
+                Debug.Log("Invalid asset.");
+                continue;
+            }
+
+            GameObject newObject = new(asset.name);
+            newObject.AddComponent<AudioSource>();
+        }
+    }
+#endif
 }
 

@@ -1,10 +1,14 @@
+using Sirenix.OdinInspector;
 using System.Collections.Generic;
+using System.Linq;
 using Toolbox;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.Audio;
 
 public enum SoundBUS
 {
+    Master,
     Ambient,
     Environment,
     SFX,
@@ -13,49 +17,49 @@ public enum SoundBUS
 }
 
 [System.Serializable]
-public class SoundBusMixerPair
+public class BusInfo
 {
     public SoundBUS soundBus;
     public AudioMixer audioMixer;
-}
-    
+    public float individualVolume = 1.0f;
+    public int activeVoiceCount = 0;
+    public int voiceLimit;
+    public Queue<AudioSource> activeVoices = new Queue<AudioSource>();
 
-    public class SoundManager : Singleton<SoundManager>
+
+    public BusInfo(SoundBUS soundBus, AudioMixer audioMixer, int voiceLimit)
+    {
+        this.soundBus = soundBus;
+        this.audioMixer = audioMixer;
+        this.voiceLimit = voiceLimit;
+    }
+}
+
+public class SoundManager : Singleton<SoundManager>
 {
     [SerializeField] List<SoundGroup> soundGroupsList = null;
-    [SerializeField] List<AudioMixer> audioMixers = null;
+    [SerializeField] private List<BusInfo> soundBusInformationList;
 
-    [SerializeField] private List<SoundBusMixerPair> soundBusMixerPairs;
-    private Dictionary<SoundBUS, AudioMixer> soundBusToMixer = new Dictionary<SoundBUS, AudioMixer>();
-
-    private readonly Dictionary<SoundBUS, int> activeVoiceCounts = new();
-    private readonly Dictionary<SoundBUS, int> busVoiceLimit = new()
-    {
-        {SoundBUS.Ambient, 3 },
-        {SoundBUS.Environment, 1},
-        {SoundBUS.SFX, 10},
-        {SoundBUS.UI, 5},
-        {SoundBUS.Voice, 2}
-    };
     private readonly Dictionary<string, SoundGroup> soundGroups = new();
+    private readonly Dictionary<SoundBUS, BusInfo> busInfo = new();
+
+    public BusInfo GetBUSControl(SoundBUS bus)
+    {
+        return busInfo[bus];
+    }
 
     protected override void Awake()
     {
         base.Awake();
 
-        foreach (SoundBusMixerPair pair in soundBusMixerPairs)
+        foreach (BusInfo control in soundBusInformationList)
         {
-            soundBusToMixer[pair.soundBus] = pair.audioMixer;
+            busInfo[control.soundBus] = control;
         }
     }
 
     private void Start()
-    {    
-        foreach (SoundBUS bus in busVoiceLimit.Keys)
-        {
-            activeVoiceCounts[bus] = 0;
-        }
-
+    {
         foreach (SoundGroup soundGroup in soundGroupsList)
         {
             soundGroups[soundGroup.gameObject.name] = soundGroup;
@@ -76,16 +80,21 @@ public class SoundBusMixerPair
     {
         if (soundGroups.TryGetValue(soundGroupName, out SoundGroup soundGroup))
         {
-            SoundBUS bus = soundGroup.SoundBUS;
-            if (activeVoiceCounts[bus] >= busVoiceLimit[bus])
+            BusInfo info = busInfo[soundGroup.SoundBUS];
+
+            // Stop the oldest active voice and dequeue it, if voice limit is reached.
+            if (info.activeVoiceCount >= info.voiceLimit && info.activeVoices.Count > 0)
             {
-                return;
+                AudioSource toStop = info.activeVoices.Dequeue();
+                toStop.Stop();
+                info.activeVoiceCount--;
             }
 
             AudioSource source = soundGroup.GetAvailableSource();
             if (source != null)
             {
-                activeVoiceCounts[bus]++;
+                info.activeVoiceCount++;
+                info.activeVoices.Enqueue(source);  // Enqueue the new active voice.
                 soundGroup.OnAudioSourceStopped += HandleAudioSourceStopped;
 
                 if (location != null)
@@ -98,26 +107,67 @@ public class SoundBusMixerPair
         }
     }
 
+
     private void HandleAudioSourceStopped(SoundGroup soundGroup)
     {
         SoundBUS bus = soundGroup.SoundBUS;
-        activeVoiceCounts[bus]--;
+        BusInfo info = busInfo[bus];
+
+        if (info.activeVoices.Count > 0)
+        {
+            AudioSource toDequeue = info.activeVoices.Dequeue();
+        }
+
+        info.activeVoiceCount--;
         soundGroup.OnAudioSourceStopped -= HandleAudioSourceStopped;
     }
 
     public void SetBusVolume(SoundBUS bus, float volume)
     {
-        foreach (SoundGroup soundGroup in soundGroups.Values)
+        BusInfo control = busInfo[bus];
+        control.individualVolume = volume;
+        if (bus == SoundBUS.Master)
         {
-            if (soundGroup.SoundBUS == bus)
+            foreach (BusInfo individualControl in busInfo.Values)
             {
-                foreach (AudioSource source in soundGroup.AudioSources)
+                if (individualControl.soundBus != SoundBUS.Master)
                 {
-                    source.volume = volume;
+                    individualControl.audioMixer.SetFloat("Volume", Mathf.Log10(control.individualVolume * volume) * 20);
                 }
             }
         }
+        control.audioMixer.SetFloat("Volume", Mathf.Log10(volume) * 20);
     }
+
+#if UNITY_EDITOR
+    [InfoBox("This is a simple helper method for creating sound groups in bulk. Usage:\n\n" +
+        "1) Click \"Lock Inspector\" while the game object with the SoundManager.cs component is selected\n" +
+        "2) Select multiple sound group folders in the Project view.\n" +
+        "3) Click this button.\n\n" +
+        "A new game object with the same name as each respective folder will be created. This new game object will have a SoundGroup.cs attached.")]
+    [Button("Create game objects for sound groups")]
+    public void CreateChildObjects()
+    {
+        Object[] selectedAssets = Selection.GetFiltered(typeof(Object), SelectionMode.Assets);
+
+        // Sort by name
+        selectedAssets = selectedAssets.OrderBy(asset => asset.name).ToArray();
+
+        foreach (Object asset in selectedAssets)
+        {
+            string assetPath = AssetDatabase.GetAssetPath(asset);
+            if (string.IsNullOrEmpty(assetPath))
+            {
+                Debug.Log("Invalid asset.");
+                continue;
+            }
+
+            GameObject newObject = new(asset.name);
+            newObject.AddComponent<AudioSource>();
+            newObject.transform.SetParent(transform);
+        }
+    }
+#endif
 
 }
 
