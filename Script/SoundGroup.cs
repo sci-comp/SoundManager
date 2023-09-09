@@ -11,7 +11,7 @@ public class SoundGroup : MonoBehaviour
     [SerializeField] Vector2 varyPitch = new(0.95f, 1.05f);
     [SerializeField] Vector2 varyVolume = new(0.94f, 1.0f);
     [SerializeField] SoundBUS soundBUS = SoundBUS.SFX;
-    [SerializeField] List<AudioSource> audioSources;
+    [SerializeField] List<AudioSource> audioSources = new();
 
     private readonly Dictionary<AudioSource, Coroutine> sourceCoroutines = new();
 

@@ -7,7 +7,10 @@ using UnityEngine.Audio;
 
 public class SoundManager : Singleton<SoundManager>
 {
-    [SerializeField] List<SoundGroup> soundGroupsList = null;
+    [SerializeField] List<SoundGroup> soundGroupsListSFX = null;
+    [SerializeField] List<SoundGroup> soundGroupsListUI = null;
+    [SerializeField] List<SoundGroup> soundGroupsListVoice = null;
+
     [SerializeField] private List<SoundBusInfo> soundBusInfoList;
 
     private readonly Dictionary<string, SoundGroup> soundGroups = new();
@@ -25,7 +28,12 @@ public class SoundManager : Singleton<SoundManager>
 
     private void Start()
     {
-        foreach (SoundGroup soundGroup in soundGroupsList)
+        List<SoundGroup> allSoundGroups = new();
+        allSoundGroups.AddRange(soundGroupsListSFX);
+        allSoundGroups.AddRange(soundGroupsListUI);
+        allSoundGroups.AddRange(soundGroupsListVoice);
+
+        foreach (SoundGroup soundGroup in allSoundGroups)
         {
             soundGroups[soundGroup.gameObject.name] = soundGroup;
         }
@@ -169,6 +177,10 @@ public class SoundManager : Singleton<SoundManager>
                 audioSource.pitch = 1.0f;
                 audioSource.spatialBlend = use3DSoundForBatch ? 1.0f : 0.0f;
 
+                if (soundGroup == null)
+                {
+                    Debug.Log("Why");
+                }
                 soundGroup.AudioSources.Add(audioSource);
             }
         }
