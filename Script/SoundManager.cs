@@ -7,12 +7,11 @@ using UnityEngine.Audio;
 
 public class SoundManager : Singleton<SoundManager>
 {
+    [SerializeField] List<SoundBusInfo> soundBusInfoList = null;
     [SerializeField] List<SoundGroup> soundGroupsListSFX = null;
     [SerializeField] List<SoundGroup> soundGroupsListUI = null;
     [SerializeField] List<SoundGroup> soundGroupsListVoice = null;
-
-    [SerializeField] private List<SoundBusInfo> soundBusInfoList;
-
+    
     private readonly Dictionary<string, SoundGroup> soundGroups = new();
     private readonly Dictionary<SoundBUS, SoundBusInfo> allBusInfo = new();
 
@@ -39,53 +38,6 @@ public class SoundManager : Singleton<SoundManager>
         }
     }
 
-    public SoundBusInfo GetBUSInfoFromList(SoundBUS bus)
-    {
-        foreach (SoundBusInfo info in soundBusInfoList)
-        {
-            if (info.soundBus == bus)
-            {
-                return info;
-            }
-        }
-
-        return null;
-    }
-
-    public void HandleAudioSourceStopped(SoundGroup soundGroup, AudioSource src)
-    {
-        SoundBUS bus = soundGroup.SoundBUS;
-        SoundBusInfo busInfo = allBusInfo[bus];
-
-        if (busInfo.activeSources.Count > 0)
-        {
-            busInfo.activeSources.Remove(src);
-            busInfo.activeSourcesSoundGroup.Remove(soundGroup);
-        }
-        else
-        {
-            Debug.LogWarning("HandleAudioSourceStopped was invoked, but we have no actives voice.");
-        }
-    }
-
-    public void SetBusVolume(SoundBUS bus, float volume)
-    {
-        // TODO: This method is untested.
-        SoundBusInfo control = allBusInfo[bus];
-        control.individualVolume = volume;
-        control.audioMixer.SetFloat("Volume", Mathf.Log10(volume) * 20);
-    }
-
-    public void PlaySound(string soundGroupName)
-    {
-        PlaySoundInternal(soundGroupName, null);
-    }
-
-    public void PlaySound(string soundGroupName, Transform location)
-    {
-        PlaySoundInternal(soundGroupName, location);
-    }
-
     private void PlaySoundInternal(string soundGroupName, Transform location)
     {
         if (soundGroups.TryGetValue(soundGroupName, out SoundGroup soundGroup))
@@ -100,7 +52,7 @@ public class SoundManager : Singleton<SoundManager>
             }
 
             (AudioSource source, SoundGroup sourceSoundGroup) = soundGroup.GetAvailableSource();
-            
+
             if (source != null)
             {
                 busInfo.activeSources.Add(source);
@@ -120,7 +72,56 @@ public class SoundManager : Singleton<SoundManager>
         }
     }
 
+    public void HandleAudioSourceStopped(SoundGroup soundGroup, AudioSource src)
+    {
+        SoundBUS bus = soundGroup.SoundBUS;
+        SoundBusInfo busInfo = allBusInfo[bus];
+
+        if (busInfo.activeSources.Count > 0)
+        {
+            busInfo.activeSources.Remove(src);
+            busInfo.activeSourcesSoundGroup.Remove(soundGroup);
+        }
+        else
+        {
+            Debug.LogWarning("HandleAudioSourceStopped was invoked, but we have no actives voice.");
+        }
+    }
+
+    public void PlaySound(string soundGroupName)
+    {
+        PlaySoundInternal(soundGroupName, null);
+    }
+
+    public void PlaySound(string soundGroupName, Transform location)
+    {
+        PlaySoundInternal(soundGroupName, location);
+    }
+
+    public void SetBusVolume(SoundBUS bus, float volume)
+    {
+        // TODO: This method is untested.
+        SoundBusInfo control = allBusInfo[bus];
+        control.individualVolume = volume;
+        control.audioMixer.SetFloat("Volume", Mathf.Log10(volume) * 20);
+    }
+
+    #region Editor
+
 #if UNITY_EDITOR
+
+    public SoundBusInfo GetBUSInfoFromList(SoundBUS bus)
+    {
+        foreach (SoundBusInfo info in soundBusInfoList)
+        {
+            if (info.soundBus == bus)
+            {
+                return info;
+            }
+        }
+
+        return null;
+    }
 
     [Title("Editor-time helper", "For batch creation of sound groups", TitleAlignments.Centered)]
     [InfoBox("Sound groups are pools that contain variations of a sound. Each sound group is represented by a folder that contains AudioClip variations.\n\n " +
@@ -186,6 +187,8 @@ public class SoundManager : Singleton<SoundManager>
         }
     }
 #endif
+
+    #endregion
 
 }
 

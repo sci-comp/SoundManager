@@ -84,7 +84,10 @@ public class SoundGroup : MonoBehaviour
         SoundManager.Instance.HandleAudioSourceStopped(this, src);
     }
 
+    #region Editor
+
 #if UNITY_EDITOR
+
     [InfoBox("This is a simple helper method for creating AudioSource components for a given sound group. Usage:\n\n" +
         "1) Click \"Lock Inspector\" while the game object with the SoundGroup.cs component is selected\n" +
         "2) Select multiple audio clip assets in the Project view.\n" +
@@ -140,7 +143,10 @@ public class SoundGroup : MonoBehaviour
                 
         }
     }
+
 #endif
+
+    #endregion
 
 }
 
