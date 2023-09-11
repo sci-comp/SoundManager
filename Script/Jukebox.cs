@@ -14,7 +14,6 @@ public class Jukebox : MonoBehaviour
 
     public List<MusicGroup> musicGroups = new();
     public AudioSource musicSource;
-    public AudioSource environmentSource;
 
     private List<AudioClip> playlist;
 
@@ -27,6 +26,7 @@ public class Jukebox : MonoBehaviour
     {
         nextEventTimer.EventTriggered += SleepOver;
     }
+
 
     public void SleepOver()
     {
